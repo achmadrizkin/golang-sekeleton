@@ -1,0 +1,146 @@
+# Copy this file to config.yaml and adjust for your environment.
+# Every key can be overridden by an environment variable: uppercase, dots
+# become underscores (e.g. database.host -> DATABASE_HOST). This does NOT
+# work reliably for list-typed keys (kafka.brokers, cors.allowed_origins,
+# message_publishers/consumers) — override those via a per-environment
+# file (config/dev.yaml, config/staging.yaml, config/prod.yaml) instead.
+
+server:
+  name: "golang-sekeleton"
+  environment: "development"   # development|staging|production
+  http_port: 4021
+  grpc_port: 9090
+  read_timeout_seconds: 30
+  validate_jwt: false          # true in staging/production
+  swagger_enabled: true        # keep false in production
+
+database:
+  driver: "mysql"              # mysql|postgres
+  host: "localhost"
+  port: 3306                   # 5432 for postgres
+  user: "root"
+  password: "root"
+  name: "golang_sekeleton"
+  ssl_mode: "disable"          # postgres only
+  query_timeout_seconds: 5
+  max_open_conns: 25
+  max_idle_conns: 10
+  conn_max_lifetime_minutes: 5
+
+cache:
+  enabled: true
+  mode: "single"                # single|cluster
+  addrs: ["localhost:6379"]
+  password: ""
+  db: 0
+  # replica:                    # optional read-only replica, served by
+  #   mode: "single"            # Repository.ReadCache()
+  #   addrs: ["localhost:6380"]
+  #   password: ""
+  #   db: 0
+
+jwt:
+  secret: "change-me-in-production"
+  issuer: "golang-sekeleton"
+
+cors:
+  allowed_origins: ["*"]
+  allowed_methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+  allowed_headers: ["Authorization", "Content-Type"]
+  allow_credentials: false
+
+telemetry:
+  enabled: false
+  otlp_endpoint: "localhost:4317"
+  sample_ratio: 1.0
+
+logging:
+  level: "info"                 # debug|info|warn|error
+  encoding: "console"           # json in production
+  excluded_log_paths: ["/health/live", "/health/ready", "/health", "/hc"]
+
+# ---------------------------------------------------------------------------
+# Messaging is topic-centric: general_mq_config holds the default settings
+# per broker type, and each topic below may override any of those keys
+# under its own mq_config. A single service can therefore publish
+# user.created to RabbitMQ and, say, audit.logs to Kafka at the same time —
+# only config differs, never code.
+# ---------------------------------------------------------------------------
+
+message_publishers:
+  general_mq_config:
+    concurrent_consumers: 1     # unused by publishers, kept for symmetry
+    exponential_backoff: true
+    initial_interval: 2
+    max_interval: 30
+    multiplier: 2
+    max_retries: 5
+    enable_dlq: true
+    kafka:
+      brokers: ["localhost:9092"]
+      compression: "none"       # none|gzip|snappy|lz4|zstd
+      required_acks: -1         # -1 = all
+    rabbitmq:
+      host: "localhost"
+      port: 5672
+      vhost: "/"
+      username: "guest"
+      password: "guest"
+      message_ttl: 86400
+      delivery_mode: 2          # 2 = persistent
+      queue_type: "classic"     # classic|quorum
+      prefetch_count: 10
+    pubsub:
+      project_id: "local-project"
+      emulator_host: "localhost:8085"   # unset to target real GCP
+
+  user_created:
+    name: "user.created"
+    type: "rabbitmq"            # uses general_mq_config.rabbitmq as-is
+
+  user_deleted:
+    name: "user.deleted"
+    type: "rabbitmq"
+    mq_config:
+      queue_type: "quorum"      # per-topic override
+
+  # audit_logs:                 # example of a Kafka topic alongside the
+  #   name: "audit.logs"        # RabbitMQ ones above
+  #   type: "kafka"
+  #   mq_config:
+  #     compression: "gzip"
+
+message_consumers:
+  subscription: "golang-sekeleton-consumer"   # default queue/group name
+  general_mq_config:
+    concurrent_consumers: 3
+    exponential_backoff: true
+    initial_interval: 2
+    max_interval: 30
+    multiplier: 2
+    max_retries: 5
+    enable_dlq: true
+    kafka:
+      brokers: ["localhost:9092"]
+    rabbitmq:
+      host: "localhost"
+      port: 5672
+      vhost: "/"
+      username: "guest"
+      password: "guest"
+      prefetch_count: 10
+    pubsub:
+      project_id: "local-project"
+      emulator_host: "localhost:8085"
+
+  user_created:
+    name: "user.created"
+    subscription: "user.created.golang-sekeleton-consumer"
+    type: "rabbitmq"
+    mq_config:
+      concurrent_consumers: 5
+
+  user_deleted:
+    name: "user.deleted"
+    subscription: "user.deleted.golang-sekeleton-consumer"
+    type: "rabbitmq"

@@ -1,0 +1,7 @@
+bin/
+tools/protoc/
+coverage.out
+config/config.yaml
+!config/config.example.yaml
+.env
+*.log

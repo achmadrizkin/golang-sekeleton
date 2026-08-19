@@ -1,0 +1,7 @@
+.git
+.gitignore
+bin/
+tools/protoc/
+third_party/
+*.md
+docker-compose.yml

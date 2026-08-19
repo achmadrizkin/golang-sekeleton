@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "github.com/fauzie/golang-sekeleton/proto";
+
+// PaginationRequest is the shared request shape for every paginated list
+// RPC. page/page_size are normalized server-side (see pkg/util) so a
+// client cannot force an unbounded page_size.
+message PaginationRequest {
+  int32 page = 1 [json_name = "page"];
+  int32 page_size = 2 [json_name = "page_size"];
+}
+
+// PaginationMeta is the shared pagination metadata block returned
+// alongside every paginated list.
+message PaginationMeta {
+  int32 page = 1 [json_name = "page"];
+  int32 page_size = 2 [json_name = "page_size"];
+  int64 total_items = 3 [json_name = "total_items"];
+  int32 total_pages = 4 [json_name = "total_pages"];
+}
